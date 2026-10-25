@@ -1,0 +1,32 @@
+version: 1
+project: GeoSense
+invariants:
+  - No external source is integrated before its documentation exists in docs/data-sources.
+  - Domain code never imports infrastructure implementations.
+  - Observations, interpretations and derived metrics must be labeled separately.
+  - Secrets remain server-side and outside version control.
+roles:
+  orchestration:
+    owns: [branch-sequencing, integration-order, dependency-risk]
+    requires: [tests-passing, clean-working-tree]
+  architecture:
+    owns: [layer-boundaries, contracts, dependency-direction]
+  review:
+    owns: [duplication, ambiguity, redundancy, maintainability]
+  security:
+    owns: [secrets, auth-boundaries, threat-model, dependency-review]
+  testing:
+    owns: [unit, integration, e2e, regression]
+  planning:
+    owns: [backlog-slicing, acceptance-criteria, jira-linking]
+  production:
+    owns: [ci-cd, releases, operational-readiness, rollback]
+  flows:
+    owns: [adapter-service-repository-schema, provenance]
+workflow:
+  - plan
+  - implement
+  - test
+  - review
+  - merge
+  - observe
