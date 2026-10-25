@@ -1,4 +1,4 @@
-"""Synchronize local StudyGeoSense Markdown chapters to child pages in Notion.
+"""Synchronize local StudyGeoSense Markdown chapters to an organized Notion hub.
 
 Usage: python scripts/notion_study_sync.py --apply
 Without --apply it only prints the planned changes.
@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).resolve().parents[3]
 STUDY_DIRECTORY = ROOT / "StudyGeoSense"
 NOTION_API = "https://api.notion.com/v1"
+HUB_TITLE = "StudyGeoSense — Guia de Estudos"
 load_dotenv(ROOT / ".env")
 
 
@@ -43,7 +44,10 @@ def markdown_blocks(markdown: str) -> list[dict[str, Any]]:
 
 
 def chapter_title(path: Path) -> str:
-    return f"StudyGeoSense — {path.stem}"
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("# "):
+            return line[2:].strip()
+    return path.stem.replace("-", " ").title()
 
 
 class NotionStudySync:
@@ -55,23 +59,46 @@ class NotionStudySync:
             timeout=30,
         )
 
-    def existing_child_titles(self) -> set[str]:
-        response = self.client.get(f"/blocks/{self.parent_page_id}/children", params={"page_size": 100})
+    def child_pages(self, parent_page_id: str) -> dict[str, str]:
+        """Return direct child pages indexed by their visible title."""
+        response = self.client.get(f"/blocks/{parent_page_id}/children", params={"page_size": 100})
         response.raise_for_status()
         return {
-            result["child_page"]["title"]
+            result["child_page"]["title"]: result["id"]
             for result in response.json()["results"]
             if result["type"] == "child_page"
         }
 
-    def create_chapter(self, title: str, content: str) -> None:
-        response = self.client.post("/pages", json={"parent": {"page_id": self.parent_page_id}, "properties": {"title": {"title": [{"type": "text", "text": {"content": title}}]}}})
+    def create_page(self, parent_page_id: str, title: str) -> str:
+        response = self.client.post("/pages", json={"parent": {"page_id": parent_page_id}, "properties": {"title": {"title": [{"type": "text", "text": {"content": title}}]}}})
         response.raise_for_status()
-        page_id = response.json()["id"]
-        blocks = markdown_blocks(content)
+        return response.json()["id"]
+
+    def append_blocks(self, page_id: str, blocks: list[dict[str, Any]]) -> None:
         for start in range(0, len(blocks), 100):
             append = self.client.patch(f"/blocks/{page_id}/children", json={"children": blocks[start:start + 100]})
             append.raise_for_status()
+
+    def ensure_hub(self) -> tuple[str, bool]:
+        existing = self.child_pages(self.parent_page_id)
+        if HUB_TITLE in existing:
+            return existing[HUB_TITLE], False
+        hub_id = self.create_page(self.parent_page_id, HUB_TITLE)
+        self.append_blocks(hub_id, markdown_blocks(
+            "# Guia de Estudos GeoSense\n\n"
+            "Este hub reúne os capítulos de estudo gerados durante a evolução do projeto. "
+            "Cada capítulo descreve decisões, código, testes e limites técnicos.\n\n"
+            "## Como usar\n\n"
+            "- Navegue pelos capítulos abaixo na ordem sugerida.\n"
+            "- O conteúdo é sincronizado a partir de `StudyGeoSense/` no repositório local.\n"
+            "- Anotações complementares podem ser feitas diretamente em cada página."
+        ))
+        return hub_id, True
+
+    def create_chapter(self, hub_page_id: str, title: str, content: str) -> None:
+        page_id = self.create_page(hub_page_id, title)
+        blocks = markdown_blocks(content)
+        self.append_blocks(page_id, blocks)
 
 
 def required_environment() -> tuple[str, str, str]:
@@ -91,18 +118,20 @@ def main() -> None:
     if not chapters:
         raise SystemExit(f"Nenhum capítulo encontrado em {STUDY_DIRECTORY}")
     if not args.apply:
-        print("Prévia — nenhum conteúdo será enviado. Use --apply para publicar:")
-        print("\n".join(f"- {chapter_title(path)}" for path in chapters))
+        print(f"Prévia — nenhum conteúdo será enviado. Estrutura planejada:\n- {HUB_TITLE}")
+        print("\n".join(f"  - {chapter_title(path)}" for path in chapters))
         return
     token, parent_id, version = required_environment()
     sync = NotionStudySync(token, parent_id, version)
-    existing = sync.existing_child_titles()
+    hub_id, created = sync.ensure_hub()
+    print(f"{'Criado' if created else 'Reutilizado'} hub: {HUB_TITLE}")
+    existing = sync.child_pages(hub_id)
     for chapter in chapters:
         title = chapter_title(chapter)
         if title in existing:
             print(f"Ignorado (já existe): {title}")
             continue
-        sync.create_chapter(title, chapter.read_text(encoding="utf-8"))
+        sync.create_chapter(hub_id, title, chapter.read_text(encoding="utf-8"))
         print(f"Criado: {title}")
 
 
