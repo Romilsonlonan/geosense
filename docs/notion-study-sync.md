@@ -5,4 +5,6 @@
 3. Confira a prévia: `cd apps/api && python scripts/notion_study_sync.py`.
 4. Publique os capítulos ausentes: `python scripts/notion_study_sync.py --apply`.
 
-O sincronizador é idempotente para capítulos existentes: ele cria apenas páginas-filhas cujo título ainda não esteja no pai. Ele não atualiza nem apaga páginas já existentes, preservando anotações feitas no Notion.
+O sincronizador cria a página-hub **StudyGeoSense — Guia de Estudos** dentro da página-pai configurada. Cada capítulo vira uma subpágina usando o título do seu Markdown, resultando em uma estrutura de navegação clara e ordenada.
+
+Ele é idempotente: reutiliza o hub e ignora capítulos já existentes. Ele não atualiza nem apaga páginas, preservando anotações feitas no Notion.
