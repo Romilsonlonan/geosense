@@ -5,3 +5,4 @@ theme:
 nav:
   - Início: index.md
   - Fontes de dados: data-sources/README.md
+  - Estudos no Notion: notion-study-sync.md
