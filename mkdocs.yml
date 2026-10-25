@@ -1,0 +1,7 @@
+site_name: GeoSense
+site_description: Hub de conhecimento em geociências
+theme:
+  name: material
+nav:
+  - Início: index.md
+  - Fontes de dados: data-sources/README.md
