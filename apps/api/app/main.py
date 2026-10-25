@@ -4,6 +4,8 @@ from dataclasses import asdict, dataclass
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.telemetry import configure_telemetry
+
 
 @dataclass(frozen=True, slots=True)
 class ServiceStatus:
@@ -24,6 +26,7 @@ app.add_middleware(
     allow_methods=["GET"],
     allow_headers=["*"],
 )
+configure_telemetry(app)
 
 
 @app.get("/health", response_model=ServiceStatus)
