@@ -19,6 +19,7 @@ coverage/
 
 # Documentation output
 site/
+docs/
 
 # Runtime state and local experiments
 pipeline-history.json
